@@ -1,8 +1,9 @@
 """State definitions for FoodStack agent graph."""
 
-from typing import TypedDict
+from typing import TypedDict, Annotated
 
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage, AnyMessage
+from langgraph.graph import add_messages
 
 
 class StackState(TypedDict):
@@ -23,3 +24,7 @@ class StackState(TypedDict):
     menu_response: str
     order_response: str
     final_answer: str
+
+    # Agent-local message buffers (isolated via add_messages reducer)
+    menu_messages: Annotated[list[AnyMessage], add_messages]
+    order_messages: Annotated[list[AnyMessage], add_messages]
