@@ -38,7 +38,7 @@ class OrchestratorDecision(BaseModel):
 
 routing_llm = llm.with_structured_output(OrchestratorDecision)
 
-def orchestrator_node(state:StackState) -> Command[Literal["menu_agent_node, order_agent_node"]]:
+def orchestrator_node(state: StackState) -> Command:
     """Route a user query to appropriate agent(s).
 
     Args:
@@ -71,8 +71,3 @@ def orchestrator_node(state:StackState) -> Command[Literal["menu_agent_node, ord
 
     sends = [Send(f"{agent}_node", clean_state) for agent in decision.agents]
     return Command(goto=sends, update={"route": decision.agents})
-
-
-
-
-

@@ -71,6 +71,6 @@ def synthesizer_node(state: dict[str, Any]) -> dict[str, Any]:
     logger.info("Synthesizer produced final response")
 
     return {
-        "final_response": final_response,
-        "synthesizer_messages": messages + [response],
+        "final_answer": final_response,
+        "messages": messages + [response],
     }

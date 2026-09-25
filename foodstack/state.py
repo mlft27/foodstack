@@ -20,7 +20,7 @@ class StackState(TypedDict):
 
     messages: list[BaseMessage]
     user_query: str
-    route: str
+    route: list[str]
     menu_response: str
     order_response: str
     final_answer: str

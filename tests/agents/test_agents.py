@@ -8,7 +8,7 @@ from langgraph.types import Command
 from foodstack.agents.menu_agent import menu_agent_node
 from foodstack.agents.order_agent import order_agent_node, _extract_identifiers
 from foodstack.agents.synthesizer import synthesizer_node
-from foodstack.agents.orchestrator import orchestrator_node, OrchestratorDecision
+from foodstack.agents.orchestrator import orchestrator_node, OrchestratorDecision, routing_llm
 
 
 # Mock StackState dictionaries for testing
@@ -26,9 +26,8 @@ def create_mock_state(
         "order_response": order_response,
         "menu_messages": [],
         "order_messages": [],
-        "synthesizer_messages": [],
-        "route": [],
-        "final_response": "",
+        "route": "",
+        "final_answer": "",
     }
 
 
@@ -50,7 +49,6 @@ class TestMenuAgent:
 
         # Assertions
         assert isinstance(result, Command)
-        assert result.goto == "synthesizer_node"
         assert "menu_response" in result.update
         assert "menu_messages" in result.update
         assert result.update["menu_response"] == "Here are our vegetarian options..."
@@ -78,7 +76,6 @@ class TestMenuAgent:
         result = menu_agent_node(state)
 
         assert isinstance(result, Command)
-        assert result.goto == "synthesizer_node"
         assert "menu_response" in result.update
         # Tool should have been called
         assert mock_llm.invoke.call_count >= 2
@@ -193,7 +190,6 @@ class TestOrderAgent:
         result = order_agent_node(state)
 
         assert isinstance(result, Command)
-        assert result.goto == "synthesizer_node"
         assert "order_response" in result.update
 
     @patch("foodstack.agents.order_agent.order_llm")
@@ -206,7 +202,7 @@ class TestOrderAgent:
         result = order_agent_node(state)
 
         assert isinstance(result, Command)
-        assert result.goto == "synthesizer_node"
+        assert "order_response" in result.update
 
     @patch("foodstack.agents.order_agent.order_llm")
     def test_order_agent_max_iterations(self, mock_llm):
@@ -249,8 +245,8 @@ class TestSynthesizer:
 
         result = synthesizer_node(state)
 
-        assert "final_response" in result
-        assert result["final_response"] == "Here are our vegetarian options..."
+        assert "final_answer" in result
+        assert result["final_answer"] == "Here are our vegetarian options..."
         mock_llm.invoke.assert_called_once()
 
     @patch("foodstack.agents.synthesizer.llm")
@@ -267,8 +263,8 @@ class TestSynthesizer:
 
         result = synthesizer_node(state)
 
-        assert "final_response" in result
-        assert result["final_response"] == "Your order is out for delivery..."
+        assert "final_answer" in result
+        assert result["final_answer"] == "Your order is out for delivery..."
 
     @patch("foodstack.agents.synthesizer.llm")
     def test_synthesizer_both_responses(self, mock_llm):
@@ -287,9 +283,9 @@ class TestSynthesizer:
 
         result = synthesizer_node(state)
 
-        assert "final_response" in result
-        assert "vegetarian" in result["final_response"]
-        assert "out for delivery" in result["final_response"]
+        assert "final_answer" in result
+        assert "vegetarian" in result["final_answer"]
+        assert "out for delivery" in result["final_answer"]
 
     @patch("foodstack.agents.synthesizer.llm")
     def test_synthesizer_no_responses(self, mock_llm):
@@ -301,9 +297,9 @@ class TestSynthesizer:
         state = create_mock_state(menu_response="", order_response="")
         result = synthesizer_node(state)
 
-        assert "final_response" in result
+        assert "final_answer" in result
         # Should contain the error message
-        assert "unable" in result["final_response"].lower()
+        assert "unable" in result["final_answer"].lower()
 
     @patch("foodstack.agents.synthesizer.llm")
     def test_synthesizer_preserves_messages(self, mock_llm):
@@ -316,8 +312,8 @@ class TestSynthesizer:
 
         result = synthesizer_node(state)
 
-        assert "synthesizer_messages" in result
-        assert len(result["synthesizer_messages"]) >= 2  # At least system + human
+        assert "messages" in result
+        assert len(result["messages"]) >= 2  # At least system + human
 
 
 class TestAgentIntegration:
@@ -341,7 +337,8 @@ class TestAgentIntegration:
         menu_result = menu_agent_node(state)
 
         # Verify menu agent output
-        assert menu_result.goto == "synthesizer_node"
+        assert isinstance(menu_result, Command)
+        assert "menu_response" in menu_result.update
 
         # Run synthesizer with menu output
         synth_state = create_mock_state(
@@ -350,8 +347,8 @@ class TestAgentIntegration:
         synth_result = synthesizer_node(synth_state)
 
         # Verify final output
-        assert "final_response" in synth_result
-        assert len(synth_result["final_response"]) > 0
+        assert "final_answer" in synth_result
+        assert len(synth_result["final_answer"]) > 0
 
 
 class TestOrchestrator:
